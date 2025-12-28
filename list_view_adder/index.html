@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scratch ListManager Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --primary: #4c97ff;
+            --primary-dark: #3373cc;
+            --bg: #f9f9f9;
+            --card-bg: #ffffff;
+            --text: #333;
+            --border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-top: 0;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        p {
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: none;
+            text-align: center;
+        }
+
+        .status.success {
+            display: block;
+            background: #e7f4e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .footer-note {
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: #999;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ListManager Gen</h1>
+    <p>Generate a <code>.sprite3</code> file with "hacked" list view blocks.</p>
+
+    <div class="input-group">
+        <label for="listCount">Number of List Views</label>
+        <input type="number" id="listCount" value="1" min="1" max="100">
+    </div>
+
+    <button onclick="generateSprite()">Generate & Download</button>
+
+    <div id="status" class="status"></div>
+
+    <div class="footer-note">
+        <b>Note:</b> After importing to Scratch, look for the "When Green Flag Clicked" stacks at X:1000 in the code editor.
+    </div>
+</div>
+
+<script>
+    // Utility to mimic Python's uuid/hashlib logic
+    function genId() {
+        return Math.random().toString(36).substring(2, 12) + 
+               Math.random().toString(36).substring(2, 12);
+    }
+
+    async function generateSprite() {
+        const n = parseInt(document.getElementById('listCount').value) || 1;
+        const status = document.getElementById('status');
+        
+        try {
+            const zip = new JSZip();
+            
+            // 1. Setup SVG asset (Blank 1x1)
+            const svgContent = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>';
+            // In a real app, you'd use a proper MD5 library. 
+            // For a static string, we can use the pre-calculated MD5 for this exact SVG:
+            const svgMd5 = "69273574d75d5069273574d75d506927"; // Mock MD5 for example purposes
+            const svgFilename = `${svgMd5}.svg`;
+
+            // 2. Build sprite JSON structure
+            const spriteData = {
+                isStage: false,
+                name: "ListManager",
+                variables: {},
+                lists: {},
+                broadcasts: {},
+                blocks: {},
+                comments: {},
+                currentCostume: 0,
+                costumes: [{
+                    name: "blank",
+                    bitmapResolution: 1,
+                    dataFormat: "svg",
+                    assetId: svgMd5,
+                    md5ext: svgFilename,
+                    rotationCenterX: 0,
+                    rotationCenterY: 0
+                }],
+                sounds: [],
+                volume: 100,
+                layerOrder: 1,
+                visible: true,
+                x: 0,
+                y: 0,
+                size: 100,
+                direction: 90,
+                draggable: false,
+                rotationStyle: "all around"
+            };
+
+            // 3. Loop logic
+            for (let i = 1; i <= n; i++) {
+                const listName = `list_${i}`;
+                const listId = genId();
+                const ptrVarId = genId();
+                const ptrName = `pointer_${i}`;
+
+                spriteData.lists[listId] = [listName, []];
+                spriteData.variables[ptrVarId] = [ptrName, 0];
+
+                // --- BLOCK 1: Define "view = new list" ---
+                const def1 = genId();
+                const proto1 = genId();
+                const del1 = genId();
+                const set1 = genId();
+                const hackedGet = genId();
+                const proccode1 = `${listName} view = new list`;
+
+                spriteData.blocks[def1] = {
+                    opcode: "procedures_definition", next: del1, parent: null,
+                    inputs: { custom_block: [1, proto1] }, fields: {},
+                    shadow: true, topLevel: true, x: 100, y: i * 500
+                };
+
+                spriteData.blocks[proto1] = {
+                    opcode: "procedures_prototype", next: null, parent: def1,
+                    inputs: {}, fields: {}, shadow: true, topLevel: false,
+                    mutation: {
+                        tagName: "mutation", children: [], proccode: proccode1,
+                        argumentids: "[]", argumentnames: "[]", argumentdefaults: "[]", warp: "true"
+                    }
+                };
+
+                spriteData.blocks[del1] = {
+                    opcode: "data_deletealloflist", next: set1, parent: def1,
+                    inputs: {}, fields: { LIST: [listName, listId] }, shadow: false
+                };
+
+                spriteData.blocks[set1] = {
+                    opcode: "data_setvariableto", next: null, parent: del1,
+                    inputs: { VALUE: [3, hackedGet, [10, ""]] },
+                    fields: { VARIABLE: [ptrName, ptrVarId] }, shadow: false
+                };
+
+                spriteData.blocks[hackedGet] = {
+                    opcode: "data_variable", next: null, parent: set1,
+                    inputs: {}, fields: { VARIABLE: [listName, listId] }, shadow: false
+                };
+
+                // --- BLOCK 2: Define "view = value" ---
+                const def2 = genId();
+                const proto2 = genId();
+                const hackedSet = genId();
+                const argReporterId = genId();
+                const argGuid = "arg_" + genId();
+                const proccode2 = `${listName} view = %s`;
+
+                spriteData.blocks[def2] = {
+                    opcode: "procedures_definition", next: hackedSet, parent: null,
+                    inputs: { custom_block: [1, proto2] }, fields: {},
+                    shadow: true, topLevel: true, x: 500, y: i * 500
+                };
+
+                spriteData.blocks[proto2] = {
+                    opcode: "procedures_prototype", next: null, parent: def2,
+                    inputs: {}, fields: {}, shadow: true, topLevel: false,
+                    mutation: {
+                        tagName: "mutation", children: [], proccode: proccode2,
+                        argumentids: JSON.stringify([argGuid]), argumentnames: '["value"]',
+                        argumentdefaults: '[""]', warp: "true"
+                    }
+                };
+
+                spriteData.blocks[argReporterId] = {
+                    opcode: "argument_reporter_string_number", next: null, parent: hackedSet,
+                    inputs: {}, fields: { VALUE: ["value", null] }, shadow: false
+                };
+
+                spriteData.blocks[hackedSet] = {
+                    opcode: "data_setvariableto", next: null, parent: def2,
+                    inputs: { VALUE: [3, argReporterId, [10, ""]] },
+                    fields: { VARIABLE: [listName, listId] }, shadow: false
+                };
+
+                // --- USAGE SCRIPT ---
+                const flagId = genId();
+                const call1Id = genId();
+                const call2Id = genId();
+
+                spriteData.blocks[flagId] = {
+                    opcode: "event_whenflagclicked", next: call1Id, parent: null,
+                    inputs: {}, fields: {}, shadow: false, topLevel: true, x: 1000, y: i * 200
+                };
+
+                spriteData.blocks[call1Id] = {
+                    opcode: "procedures_call", next: call2Id, parent: flagId,
+                    inputs: {}, fields: {}, shadow: false,
+                    mutation: { tagName: "mutation", children: [], proccode: proccode1, argumentids: "[]", warp: "true" }
+                };
+
+                spriteData.blocks[call2Id] = {
+                    opcode: "procedures_call", next: null, parent: call1Id,
+                    inputs: { [argGuid]: [3, [12, ptrName, ptrVarId], [10, "Hello"]] },
+                    fields: {}, shadow: false,
+                    mutation: { tagName: "mutation", children: [], proccode: proccode2, argumentids: JSON.stringify([argGuid]), warp: "true" }
+                };
+            }
+
+            // 4. Create ZIP and trigger download
+            zip.file('sprite.json', JSON.stringify(spriteData));
+            zip.file(svgFilename, svgContent);
+
+            const content = await zip.generateAsync({type: "blob"});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = "ListManager.sprite3";
+            link.click();
+
+            status.textContent = "Success! File downloaded.";
+            status.className = "status success";
+
+        } catch (err) {
+            console.error(err);
+            status.textContent = "Error generating file.";
+            status.className = "status";
+            status.style.display = "block";
+            status.style.background = "#fee";
+            status.style.color = "#c00";
+        }
+    }
+</script>
+
+</body>
+</html>
